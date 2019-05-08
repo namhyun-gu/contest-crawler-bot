@@ -2,6 +2,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const request = require("request");
 const cheerio = require("cheerio");
 const firebaseAdmin = require("firebase-admin");
+const express = require('express');
 
 const token = process.env.TELEGRAM_TOKEN;
 const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -10,11 +11,24 @@ const bot = new TelegramBot(token, {
   polling: true
 });
 
+const app = express();
+
+app.get('/', (req, res) => {
+  res.statusCode(200);
+  res.write('Service working');
+});
+
+app.get('/cron', (req, res) => {
+  res.statusCode(200);
+  res.write('Run cron job');
+});
+
+app.listen(8000);
+
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({
     projectId: "contest-crawler-bot",
-    clientEmail:
-      "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
+    clientEmail: "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
     privateKey: firebasePrivateKey
   }),
   databaseURL: "https://contest-crawler-bot.firebaseio.com"
