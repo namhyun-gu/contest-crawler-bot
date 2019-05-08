@@ -5,9 +5,8 @@ const firebaseAdmin = require("firebase-admin");
 const express = require('express');
 
 const token = process.env.TELEGRAM_TOKEN || require('./config.dev.json').telegram_token;
-const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY || require('./config.dev.json').firebase_private_key;
-
-firebasePrivateKey.replace(/\\n/g, '\n');
+let firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY || require('./config.dev.json').firebase_private_key;
+firebasePrivateKey = firebasePrivateKey.replace(/\\n/g, '\n');
 
 const bot = new TelegramBot(token, {
   polling: true
