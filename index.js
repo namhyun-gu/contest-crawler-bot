@@ -2,11 +2,14 @@ const TelegramBot = require("node-telegram-bot-api");
 const request = require("request");
 const cheerio = require("cheerio");
 const firebaseAdmin = require("firebase-admin");
-const express = require('express');
+const express = require("express");
 
-const token = process.env.TELEGRAM_TOKEN || require('./config.dev.json').telegram_token;
-let firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY || require('./config.dev.json').firebase_private_key;
-firebasePrivateKey = firebasePrivateKey.replace(/\\n/g, '\n');
+const token =
+  process.env.TELEGRAM_TOKEN || require("./config.dev.json").telegram_token;
+let firebasePrivateKey =
+  process.env.FIREBASE_PRIVATE_KEY ||
+  require("./config.dev.json").firebase_private_key;
+firebasePrivateKey = firebasePrivateKey.replace(/\\n/g, "\n");
 
 const bot = new TelegramBot(token, {
   polling: true
@@ -14,43 +17,46 @@ const bot = new TelegramBot(token, {
 
 const app = express();
 
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send({
     status: 200,
     message: "Service is running"
   });
 });
 
-app.get('/cron', (req, res) => {
-  console.info('Run cron job');
+app.get("/cron", (req, res) => {
+  console.info("Run cron job");
   parseContest(12, (err, results) => {
-    saveResults(results, (newSavedIds) => {
-      console.info('newSavedIds: ');
-      console.info(newSavedIds);
+    saveResults(results, newSavedIds => {
+      console.info(`newSavedIds length: ${newSavedIds.length}`);
 
       const filteredResults = results.filter(result => {
-        const contestId = result.url.split('=')[1];
-        return newSavedIds.find((id) => id == contestId) != undefined;
+        const contestId = result.url.split("=")[1];
+        return newSavedIds.find(id => id == contestId) != undefined;
       });
 
-      let message = '새 공모전이 등록되었습니다.\n\n';
+      if (filteredResults.length == 0) {
+        console.log("New contest not updated.");
+        return;
+      }
+
+      let message = "새 공모전이 등록되었습니다.\n\n";
 
       filteredResults.forEach(result => {
         message = generateMessage(message, result);
       });
 
-      console.info('filteredResults: ');
-      console.info(filteredResults);
+      console.info(`filteredResults length: ${filteredResults.length}`);
 
-      getChatIds((ids) => {
-        console.info('ids: ')
+      getChatIds(ids => {
+        console.info("ids: ");
         console.info(ids);
-        ids.forEach((id) => {
-          console.info(`Send message ${id}`)
+        ids.forEach(id => {
+          console.info(`Send message ${id}`);
           bot.sendMessage(id, message, {
-            parse_mode: 'Markdown'
+            parse_mode: "Markdown"
           });
-        })
+        });
       });
     });
   });
@@ -66,7 +72,8 @@ app.listen(process.env.PORT || 8000);
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({
     projectId: "contest-crawler-bot",
-    clientEmail: "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
+    clientEmail:
+      "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
     privateKey: firebasePrivateKey
   }),
   databaseURL: "https://contest-crawler-bot.firebaseio.com"
@@ -123,9 +130,9 @@ function saveResults(results, callback) {
       existsId.push(child.val().contestId);
     });
     let newSavedId = [];
-    results.forEach((result) => {
-      const contestId = result.url.split('=')[1];
-      if (existsId.find((id) => id == contestId) == undefined) {
+    results.forEach(result => {
+      const contestId = result.url.split("=")[1];
+      if (existsId.find(id => id == contestId) == undefined) {
         let newContestRef = contestRef.push();
         newContestRef.set({
           contestId
@@ -150,14 +157,31 @@ function getChatIds(callback) {
 
 bot.onText(/\/start/, (msg, match) => {
   const chatId = msg.chat.id;
-  let newUserRef = userRef.push();
-  newUserRef.set({
-    chatId
+  userRef.once("value").then(snapshot => {
+    let isExist = false;
+    snapshot.forEach(child => {
+      const key = child.key;
+      const val = child.val();
+
+      if (val.chatId == chatId) {
+        isExist = true;
+        return true;
+      }
+    });
+    if (isExist) {
+      bot.sendMessage(chatId, "이미 알림 목록에 추가되어있습니다.");
+    } else {
+      let newUserRef = userRef.push();
+      newUserRef.set({
+        chatId
+      });
+      bot.sendMessage(
+        chatId,
+        "알림 목록에 추가되었습니다. /cancel 로 목록에서 삭제할 수 있습니다."
+      );
+      bot.sendMessage(chatId, generateHelpMessage());
+    }
   });
-  bot.sendMessage(
-    chatId,
-    "알림 목록에 추가되었습니다. /cancel 로 목록에서 삭제할 수 있습니다."
-  );
 });
 
 bot.onText(/\/cancel/, (msg, match) => {
@@ -191,6 +215,20 @@ bot.onText(/\/list/, (msg, match) => {
     });
   });
 });
+
+bot.onText(/\/help/, (msg, match) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, generateHelpMessage());
+});
+
+function generateHelpMessage() {
+  let message = "";
+  message += "봇 사용법\n\n";
+  message += "/start - 봇이 알림을 보낼 알림 목록에 등록합니다.\n";
+  message += "/cancel - 알림 목록에서 제거하여 알림을 받지 않습니다.\n";
+  message += "/list - 현재 올라와있는 공모전 목록을 가져옵니다\n";
+  return message;
+}
 
 function generateMessage(message, result) {
   message += `[${result.title}](https://www.thinkcontest.com${result.url})\n`;
