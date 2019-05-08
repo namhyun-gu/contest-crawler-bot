@@ -16,14 +16,16 @@ const app = express();
 app.get('/', (req, res) => {
   res.statusCode(200);
   res.write('Service working');
+  res.end();
 });
 
 app.get('/cron', (req, res) => {
   res.statusCode(200);
   res.write('Run cron job');
+  res.end();
 });
 
-app.listen(8000);
+app.listen(80);
 
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({
