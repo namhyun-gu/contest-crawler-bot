@@ -4,8 +4,10 @@ const cheerio = require("cheerio");
 const firebaseAdmin = require("firebase-admin");
 const express = require('express');
 
-const token = process.env.TELEGRAM_TOKEN;
-const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+const token = process.env.TELEGRAM_TOKEN || require('./config.dev.json').telegram_token;
+const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY || require('./config.dev.json').firebase_private_key;
+
+firebasePrivateKey.replace(/\\n/g, '\n');
 
 const bot = new TelegramBot(token, {
   polling: true
@@ -14,18 +16,53 @@ const bot = new TelegramBot(token, {
 const app = express();
 
 app.get('/', (req, res) => {
-  res.statusCode(200);
-  res.write('Service working');
-  res.end();
+  res.send({
+    status: 200,
+    message: "Service is running"
+  });
 });
 
 app.get('/cron', (req, res) => {
-  res.statusCode(200);
-  res.write('Run cron job');
-  res.end();
+  console.info('Run cron job');
+  parseContest(12, (err, results) => {
+    saveResults(results, (newSavedIds) => {
+      console.info('newSavedIds: ');
+      console.info(newSavedIds);
+
+      const filteredResults = results.filter(result => {
+        const contestId = result.url.split('=')[1];
+        return newSavedIds.find((id) => id == contestId) != undefined;
+      });
+
+      let message = '새 공모전이 등록되었습니다.\n\n';
+
+      filteredResults.forEach(result => {
+        message = generateMessage(message, result);
+      });
+
+      console.info('filteredResults: ');
+      console.info(filteredResults);
+
+      getChatIds((ids) => {
+        console.info('ids: ')
+        console.info(ids);
+        ids.forEach((id) => {
+          console.info(`Send message ${id}`)
+          bot.sendMessage(id, message, {
+            parse_mode: 'Markdown'
+          });
+        })
+      });
+    });
+  });
+
+  res.send({
+    status: 200,
+    message: "Run cron job"
+  });
 });
 
-app.listen(8000);
+app.listen(process.env.PORT || 8000);
 
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({
@@ -38,6 +75,7 @@ firebaseAdmin.initializeApp({
 
 const database = firebaseAdmin.database();
 const userRef = database.ref("/user");
+const contestRef = database.ref("/contest");
 
 function parseContest(category, callback) {
   const targetOptions = {
@@ -79,6 +117,38 @@ function parseContest(category, callback) {
   });
 }
 
+function saveResults(results, callback) {
+  contestRef.once("value").then(snapshot => {
+    let existsId = [];
+    snapshot.forEach(child => {
+      existsId.push(child.val().contestId);
+    });
+    let newSavedId = [];
+    results.forEach((result) => {
+      const contestId = result.url.split('=')[1];
+      if (existsId.find((id) => id == contestId) == undefined) {
+        let newContestRef = contestRef.push();
+        newContestRef.set({
+          contestId
+        });
+        newSavedId.push(contestId);
+      }
+    });
+    callback(newSavedId);
+  });
+}
+
+function getChatIds(callback) {
+  userRef.once("value").then(snapshot => {
+    let chatIds = [];
+    snapshot.forEach(child => {
+      const val = child.val();
+      chatIds.push(val.chatId);
+    });
+    callback(chatIds);
+  });
+}
+
 bot.onText(/\/start/, (msg, match) => {
   const chatId = msg.chat.id;
   let newUserRef = userRef.push();
@@ -114,19 +184,7 @@ bot.onText(/\/list/, (msg, match) => {
   parseContest(12, (err, results) => {
     let message = "";
     results.forEach(result => {
-      message += `[${result.title}](https://www.thinkcontest.com${
-        result.url
-      })\n`;
-      message += `${result.organizer}\n\n`;
-      message += `기간: ${result.timeLimit}`;
-      if (result.dday != "") {
-        message += ` (${result.dday})\n`;
-      } else {
-        message += "\n";
-      }
-      message += `상태: ${result.status}\n`;
-      message += `조회수: ${result.views}\n`;
-      message += "\n";
+      message = generateMessage(message, result);
     });
 
     bot.sendMessage(msg.chat.id, message, {
@@ -134,3 +192,18 @@ bot.onText(/\/list/, (msg, match) => {
     });
   });
 });
+
+function generateMessage(message, result) {
+  message += `[${result.title}](https://www.thinkcontest.com${result.url})\n`;
+  message += `${result.organizer}\n\n`;
+  message += `기간: ${result.timeLimit}`;
+  if (result.dday != "") {
+    message += ` (${result.dday})\n`;
+  } else {
+    message += "\n";
+  }
+  message += `상태: ${result.status}\n`;
+  message += `조회수: ${result.views}\n`;
+  message += "\n";
+  return message;
+}
