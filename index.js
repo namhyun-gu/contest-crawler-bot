@@ -72,7 +72,8 @@ app.listen(process.env.PORT || 8000);
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert({
     projectId: "contest-crawler-bot",
-    clientEmail: "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
+    clientEmail:
+      "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
     privateKey: firebasePrivateKey
   }),
   databaseURL: "https://contest-crawler-bot.firebaseio.com"
@@ -107,6 +108,10 @@ function parseContest(category, callback) {
       const views = element.find(".views > .num").text();
       const status = element.find(".status").text();
       const dday = element.find("span.d-day").text();
+
+      if (dday.length == 0) {
+        continue;
+      }
 
       results.push({
         url,
@@ -228,7 +233,8 @@ function generateHelpMessage() {
   message += "/start - 봇이 알림을 보낼 알림 목록에 등록합니다.\n";
   message += "/cancel - 알림 목록에서 제거하여 알림을 받지 않습니다.\n";
   message += "/list - 현재 올라와있는 공모전 목록을 가져옵니다\n\n";
-  message += "서비스 이용에 문제가 있거나, 추가하였으면 하는 기능이 있다면 https://github.com/namhyun-gu/contest-crawler-bot 에 접속하여 Issue를 추가해주세요!"
+  message +=
+    "서비스 이용에 문제가 있거나, 추가하였으면 하는 기능이 있다면 https://github.com/namhyun-gu/contest-crawler-bot 에 접속하여 Issue를 추가해주세요!";
   return message;
 }
 
