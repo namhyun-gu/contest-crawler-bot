@@ -1,20 +1,57 @@
-const TelegramBot = require("node-telegram-bot-api");
+const telegramBot = require("node-telegram-bot-api");
 const request = require("request");
 const cheerio = require("cheerio");
 const firebaseAdmin = require("firebase-admin");
 const express = require("express");
 
-const token =
-  process.env.TELEGRAM_TOKEN || require("./config.dev.json").telegram_token;
-let firebasePrivateKey =
-  process.env.FIREBASE_PRIVATE_KEY ||
-  require("./config.dev.json").firebase_private_key;
-firebasePrivateKey = firebasePrivateKey.replace(/\\n/g, "\n");
+process.env.NODE_ENV =
+  process.env.NODE_ENV &&
+  process.env.NODE_ENV.trim().toLowerCase() == "production";
 
-const bot = new TelegramBot(token, {
+const isProduction =
+  process.env.NODE_ENV == undefined || process.env.NODE_ENV == "development";
+
+let config;
+
+if (isProduction) {
+  config = {
+    telegram_token: process.env.TELEGRAM_TOKEN,
+    firebase: {
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key: process.env.FIREBASE_PRIVATE_KEY,
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      database_url: process.env.FIREBASE_DATABASE_URL
+    }
+  }
+} else {
+  config = require("./config.dev.json");
+}
+
+console.info(`TELEGRAM_TOKEN: ${config.telegram_token}`);
+console.info(`FIREBASE_PROJECT_ID: ${config.firebase.project_id}`);
+console.info(`FIREBASE_CLIENT_EMAIL: ${config.firebase.client_email}`);
+console.info(`FIREBASE_DATABASE_URL: ${config.firebase.database_url}`);
+
+// Setup TelegramBot
+const bot = new telegramBot(config.telegram_token, {
   polling: true
 });
 
+// Setup firebase
+firebaseAdmin.initializeApp({
+  credential: firebaseAdmin.credential.cert({
+    projectId: config.firebase.project_id,
+    clientEmail: config.firebase.client_email,
+    privateKey: config.firebase.private_key.replace(/\\n/g, "\n")
+  }),
+  databaseURL: config.firebase.database_url
+});
+
+const database = firebaseAdmin.database();
+const userRef = database.ref("/user");
+const contestRef = database.ref("/contest");
+
+// Setup express router
 const app = express();
 
 app.get("/", (req, res) => {
@@ -68,20 +105,6 @@ app.get("/cron", (req, res) => {
 });
 
 app.listen(process.env.PORT || 8000);
-
-firebaseAdmin.initializeApp({
-  credential: firebaseAdmin.credential.cert({
-    projectId: "contest-crawler-bot",
-    clientEmail:
-      "firebase-adminsdk-ib6rr@contest-crawler-bot.iam.gserviceaccount.com",
-    privateKey: firebasePrivateKey
-  }),
-  databaseURL: "https://contest-crawler-bot.firebaseio.com"
-});
-
-const database = firebaseAdmin.database();
-const userRef = database.ref("/user");
-const contestRef = database.ref("/contest");
 
 function parseContest(category, callback) {
   const targetOptions = {
@@ -161,6 +184,7 @@ function getChatIds(callback) {
 
 bot.onText(/\/start/, (msg, match) => {
   const chatId = msg.chat.id;
+  console.info(`${chatId} is run /start command`);
   userRef.once("value").then(snapshot => {
     let isExist = false;
     snapshot.forEach(child => {
@@ -190,6 +214,7 @@ bot.onText(/\/start/, (msg, match) => {
 
 bot.onText(/\/cancel/, (msg, match) => {
   const chatId = msg.chat.id;
+  console.info(`${chatId} is run /cancel command`);
   userRef.once("value").then(snapshot => {
     snapshot.forEach(child => {
       const key = child.key;
@@ -208,6 +233,7 @@ bot.onText(/\/cancel/, (msg, match) => {
 });
 
 bot.onText(/\/list/, (msg, match) => {
+  console.info(`${msg.chat.id} is run /list command`);
   parseContest(12, (err, results) => {
     let message = "";
     results.forEach(result => {

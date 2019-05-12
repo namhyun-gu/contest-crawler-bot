@@ -17,8 +17,6 @@ npm start
 
 개발 환경이라면 첫번째 방법을, 서비스 환경이라면 두번째 방법을 권장합니다.
 
-필요한 값들은 두 가지로,
-
 텔레그램 토큰은 Telegram의 @BotFather를 통해 새 봇을 생성하여 표시되는 토큰을 사용하면 됩니다.
 
 파이어베이스 Private key는 [Firebase](https://firebase.google.com/)에 새 프로젝트를 추가하고 '프로젝트 설정 > 서비스 계정 > 새 비공개 키 생성'을 통해 생성된 json 파일에서 private_key 항목을 사용하면 됩니다.
@@ -27,8 +25,13 @@ npm start
 
 ```json
 {
-  "telegram_token": "사용할 텔레그램 토큰",
-  "firebase_private_key": "파이어베이스 Private key"
+  "telegram_token": "",
+  "firebase": {
+    "project_id": "",
+    "client_email": "",
+    "database_url": "",
+    "private_key": ""
+  }
 }
 ```
 
@@ -37,8 +40,11 @@ npm start
 > 이용중인 클라우드 서비스가 있다면 해당 클라우드 서비스 설정 항목에 환경 변수를 추가하면 됩니다.
 
 ```bash
-export TELEGRAM_TOKEN="사용할 텔레그램 토큰"
-export FIREBASE_PRIVATE_KEY="파이어베이스 Private key"
+export TELEGRAM_TOKEN=""
+export FIREBASE_PROJECT_ID=""
+export FIREBASE_PRIVATE_KEY=""
+export FIREBASE_CLIENT_EMAIL=""
+export FIREBASE_DATABASE_URL=""
 ```
 
 ## License
