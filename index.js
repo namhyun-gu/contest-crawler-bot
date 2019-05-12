@@ -4,12 +4,8 @@ const cheerio = require("cheerio");
 const firebaseAdmin = require("firebase-admin");
 const express = require("express");
 
-process.env.NODE_ENV =
-  process.env.NODE_ENV &&
-  process.env.NODE_ENV.trim().toLowerCase() == "production";
-
 const isProduction =
-  process.env.NODE_ENV == undefined || process.env.NODE_ENV == "development";
+  process.env.NODE_ENV == "production";
 
 let config;
 
