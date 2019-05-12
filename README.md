@@ -40,6 +40,7 @@ npm start
 > 이용중인 클라우드 서비스가 있다면 해당 클라우드 서비스 설정 항목에 환경 변수를 추가하면 됩니다.
 
 ```bash
+export NODE_ENV="production" # 추가되어야만 환경변수를 이용합니다
 export TELEGRAM_TOKEN=""
 export FIREBASE_PROJECT_ID=""
 export FIREBASE_PRIVATE_KEY=""
