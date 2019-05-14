@@ -73,10 +73,9 @@ app.get("/cron", (req, res) => {
         return;
       }
 
-      let message = "새 공모전이 등록되었습니다.\n\n";
-
+      let contestMessages = [];
       filteredResults.forEach(result => {
-        message = generateMessage(message, result);
+        contestMessages.push(generateMessage('', result));
       });
 
       console.info(`filteredResults length: ${filteredResults.length}`);
@@ -86,9 +85,12 @@ app.get("/cron", (req, res) => {
         console.info(ids);
         ids.forEach(id => {
           console.info(`Send message ${id}`);
-          bot.sendMessage(id, message, {
-            parse_mode: "Markdown"
-          });
+          bot.sendMessage(id, "새 공모전이 등록되었습니다.");
+          contestMessages.forEach((message) => {
+            bot.sendMessage(id, message, {
+              parse_mode: "Markdown"
+            });
+          })
         });
       });
     });
