@@ -7,6 +7,8 @@ const express = require("express");
 const isProduction =
   process.env.NODE_ENV == "production";
 
+const port = process.env.PORT || 8000;
+
 let config;
 
 if (isProduction) {
@@ -44,8 +46,9 @@ firebaseAdmin.initializeApp({
 });
 
 const database = firebaseAdmin.database();
-const userRef = database.ref("/user");
-const contestRef = database.ref("/contest");
+const rootRef = (isProduction ? database.ref() : database.ref("/debug"));
+const userRef = rootRef.child("/user");
+const contestRef = rootRef.child("/contest");
 
 // Setup express router
 const app = express();
@@ -102,7 +105,7 @@ app.get("/cron", (req, res) => {
   });
 });
 
-app.listen(process.env.PORT || 8000);
+app.listen(port);
 
 function parseContest(category, callback) {
   const targetOptions = {
@@ -177,6 +180,14 @@ function getChatIds(callback) {
       chatIds.push(val.chatId);
     });
     callback(chatIds);
+  });
+}
+
+if (!isProduction) {
+  bot.onText(/\/cron/, (msg, match) => {
+    console.log(`${msg.chat.id} is run /cron command`);
+    bot.sendMessage(msg.chat.id, "Run cron job");
+    request.get(`http://localhost:${port}/cron`);
   });
 }
 
